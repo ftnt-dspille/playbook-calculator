@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playbook Worker Sizing Calculator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .calculator {
+            background-color: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        input[type="number"], input[type="text"], select.select-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .info-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            background-color: #2c3e50;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            font-size: 12px;
+            line-height: 16px;
+            margin-left: 5px;
+            cursor: help;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 250px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -125px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-weight: normal;
+            font-size: 14px;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: block;
+            margin: 20px auto;
+            width: 200px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #eaf7ff;
+            border-radius: 6px;
+            text-align: center;
+            display: none;
+        }
+        .result h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .worker-count {
+            font-size: 36px;
+            font-weight: bold;
+            color: #3498db;
+            margin: 15px 0;
+        }
+        .formula {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 30px;
+            font-family: monospace;
+            line-height: 1.5;
+        }
+        .breakdown {
+            text-align: left;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <h1>Playbook Worker Sizing Calculator</h1>
+        
+        <div class="form-group">
+            <label for="incidents">
+                Average number of incidents per time period
+                <div class="tooltip"><span class="info-icon">?</span>
+                    <span class="tooltiptext">The average number of incidents occurring in your chosen time period (e.g., per hour, per day)</span>
+                </div>
+            </label>
+            <input type="number" id="incidents" min="0" step="1" value="100">
+        </div>
+        
+        <div class="form-group">
+            <label for="auto-percent">
+                Percentage of incidents that trigger playbooks (%)
+                <div class="tooltip"><span class="info-icon">?</span>
+                    <span class="tooltiptext">The percentage of incidents that automatically trigger a playbook</span>
+                </div>
+            </label>
+            <input type="number" id="auto-percent" min="0" max="100" step="1" value="30">
+        </div>
+        
+        <div class="form-group">
+            <label for="manual">
+                Average analyst-triggered playbooks per time period
+                <div class="tooltip"><span class="info-icon">?</span>
+                    <span class="tooltiptext">The average number of playbooks manually triggered by analysts in the same time period</span>
+                </div>
+            </label>
+            <input type="number" id="manual" min="0" step="1" value="20">
+        </div>
+        
+        <div class="form-group">
+            <label for="duration">
+                Average playbook duration
+                <div class="tooltip"><span class="info-icon">?</span>
+                    <span class="tooltiptext">How long a typical playbook takes to complete (15-30 seconds is typical)</span>
+                </div>
+            </label>
+            <input type="number" id="duration" min="1" step="1" value="20">
+        </div>
+        
+        <div class="form-group">
+            <label for="duration-unit">Duration unit</label>
+            <select id="duration-unit" class="select-input">
+                <option value="seconds">Seconds</option>
+                <option value="minutes">Minutes</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="time-period">Time period description (optional)</label>
+            <input type="text" id="time-period" placeholder="e.g., per hour, per day, etc." value="per hour">
+        </div>
+        
+        <button onclick="calculateWorkers()">Calculate</button>
+        
+        <div class="result" id="result">
+            <h2>Recommended Number of Playbook Workers</h2>
+            <div class="worker-count" id="worker-count">0</div>
+            <p id="result-description">Based on your inputs, we recommend having <span id="worker-count-text">0</span> playbook workers.</p>
+            
+            <div id="snarky-message" class="snarky-message" style="display: none; color: #e74c3c; font-weight: bold; margin: 15px 0; padding: 10px; border: 2px dashed #e74c3c; border-radius: 6px; text-align: center;">
+                Warning: Your configuration requires <span id="calculated-count"></span> workers, but this solution has a maximum limit of 10 workers. Consider reducing your workload or optimizing your playbooks.
+            </div>
+            
+            <div class="breakdown" id="breakdown">
+                <h3>Calculation Breakdown:</h3>
+                <p id="breakdown-text"></p>
+            </div>
+            
+            <div class="formula">
+                <h3>Formula Used:</h3>
+                <p>W = [(I × A%) + M] × D</p>
+                <p>Where:</p>
+                <ul>
+                    <li>W = Number of playbook workers</li>
+                    <li>I = Average number of incidents</li>
+                    <li>A% = Percentage of incidents triggering playbooks</li>
+                    <li>M = Manually triggered playbooks</li>
+                    <li>D = Average playbook duration (converted to appropriate time unit)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function calculateWorkers() {
+            // Get inputs
+            const incidents = parseFloat(document.getElementById('incidents').value) || 0;
+            const autoPercent = parseFloat(document.getElementById('auto-percent').value) || 0;
+            const manual = parseFloat(document.getElementById('manual').value) || 0;
+            const duration = parseFloat(document.getElementById('duration').value) || 0;
+            const durationUnit = document.getElementById('duration-unit').value;
+            const timePeriod = document.getElementById('time-period').value || 'in this time period';
+            
+            // Convert duration to the same time unit as the time period
+            let normalizedDuration;
+            if (timePeriod.includes('hour')) {
+                // Convert to fraction of an hour
+                normalizedDuration = durationUnit === 'seconds' ? 
+                    duration / 3600 : // seconds to hours
+                    duration / 60;    // minutes to hours
+            } else if (timePeriod.includes('minute')) {
+                // Convert to fraction of a minute
+                normalizedDuration = durationUnit === 'seconds' ? 
+                    duration / 60 : // seconds to minutes
+                    duration;       // already in minutes
+            } else if (timePeriod.includes('day')) {
+                // Convert to fraction of a day
+                normalizedDuration = durationUnit === 'seconds' ? 
+                    duration / 86400 : // seconds to days
+                    duration / 1440;   // minutes to days
+            } else {
+                // Default case, assume we're working in the same units
+                normalizedDuration = duration;
+            }
+            
+            // Calculate components
+            const autoTriggered = incidents * (autoPercent / 100);
+            const totalPlaybooks = autoTriggered + manual;
+            const withDuration = totalPlaybooks * normalizedDuration;
+            
+            // Round up to the nearest whole number, max of 10
+            let workerCount = Math.ceil(withDuration);
+            const calculatedCount = workerCount; // Store the calculated value before capping
+            
+            // Cap at maximum 10 workers
+            const isOverLimit = workerCount > 10;
+            if (isOverLimit) {
+                workerCount = 10;
+            }
+            
+            // Update result
+            document.getElementById('worker-count').innerText = workerCount;
+            document.getElementById('worker-count-text').innerText = workerCount;
+            document.getElementById('result').style.display = 'block';
+            
+            // Show snarky message if the calculated value was over 10
+            if (isOverLimit) {
+                document.getElementById('snarky-message').style.display = 'block';
+                document.getElementById('calculated-count').innerText = calculatedCount;
+            } else {
+                document.getElementById('snarky-message').style.display = 'none';
+            }
+            
+            // Format the duration for display
+            const durationDisplay = `${duration} ${durationUnit}`;
+            const normalizedDurationDisplay = normalizedDuration.toFixed(6);
+            
+            // Update breakdown
+            let breakdownText = 
+                `<strong>Auto-triggered playbooks:</strong> ${incidents} incidents × ${autoPercent}% = ${autoTriggered.toFixed(2)} playbooks<br>` +
+                `<strong>Total playbooks:</strong> ${autoTriggered.toFixed(2)} auto + ${manual} manual = ${totalPlaybooks.toFixed(2)} playbooks ${timePeriod}<br>` +
+                `<strong>Duration conversion:</strong> ${durationDisplay} = ${normalizedDurationDisplay} ${timePeriod.includes('hour') ? 'hours' : timePeriod.includes('minute') ? 'minutes' : timePeriod.includes('day') ? 'days' : 'time units'}<br>` +
+                `<strong>Concurrent playbooks calculation:</strong> ${totalPlaybooks.toFixed(2)} playbooks × ${normalizedDurationDisplay} = ${withDuration.toFixed(6)} concurrent playbooks<br>`;
+                
+            if (isOverLimit) {
+                breakdownText += `<strong>Calculated workers needed:</strong> ${calculatedCount} (exceeded maximum)<br>` +
+                                 `<strong>Final result (capped at maximum):</strong> ${workerCount} playbook workers`;
+            } else {
+                breakdownText += `<strong>Final result (rounded up):</strong> ${workerCount} playbook workers needed`;
+            }
+            
+            document.getElementById('breakdown-text').innerHTML = breakdownText;
+        }
+    </script>
+</body>
+</html>
